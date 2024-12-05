@@ -11,5 +11,8 @@ miette = { version = "7.4.0", features = ["fancy"] }
 sane-scan = "0.1.2"
 thiserror = "2.0.4"
 
+[lints.clippy]
+unwrap_used = "deny"
+
 [patch.crates-io]
 sane-scan = { git = "https://github.com/TheNeikos/sane-scan", branch = "fix_sane_header" }

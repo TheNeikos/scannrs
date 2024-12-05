@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ffi::CStr;
 use std::ffi::CString;
 use std::path::PathBuf;
 
@@ -36,14 +35,22 @@ enum Command {
         /// Which scanner to operate on
         name: String,
 
-        /// Whether to scan in color or grayscale
-        #[arg(short, long)]
-        options: Vec<String>,
+        /// A list of options in `key=value` format to set before scanning, can be used multiple times, later options
+        /// replace earlier ones.
+        #[arg(short, long, value_parser = split_options)]
+        options: Vec<(Vec<u8>, String)>,
 
         /// The path to save the scan at
         #[arg(short, long)]
         path: PathBuf,
     },
+}
+
+fn split_options(opt: &str) -> miette::Result<(Vec<u8>, String)> {
+    opt.split_once('=')
+        .map(|(k, v)| (k.trim().to_string().into_bytes(), v.trim().to_string()))
+        .ok_or(ScannrsError::InvalidOption)
+        .into_diagnostic()
 }
 
 #[derive(Default, Subcommand)]
@@ -67,6 +74,18 @@ enum ScannrsError {
     },
     #[error("The given option '{}' does not exist for scanner '{}'", .option, .name)]
     OptionNotFound { name: String, option: String },
+
+    #[error("The given option is not formatted correctly. Please use `key=value`")]
+    InvalidOption,
+
+    #[error("The scanner gave nonsensical values, or there is a bug. It was reported: {width}x{height}pixels with a\
+        bitdepth of {pixel_size} to fit into {buffer_size}. If the values make sense, please report it as a bug")]
+    InvalidImageSize {
+        width: u32,
+        height: u32,
+        buffer_size: usize,
+        pixel_size: u32,
+    },
 }
 
 fn main() -> miette::Result<()> {
@@ -170,15 +189,7 @@ fn main() -> miette::Result<()> {
                 .into_diagnostic()
                 .with_context(|| format!("Tried to write to file at {}", path.display()))?;
 
-            let options: HashMap<&[u8], &str> = options
-                .iter()
-                .map(|option| {
-                    let (key, val) = option.split_once("=").unwrap();
-                    let key = key.trim();
-                    let val = val.trim();
-                    (key.as_bytes(), val)
-                })
-                .collect();
+            let options = options.into_iter().collect::<HashMap<_, _>>();
 
             for opt in device.get_options().into_diagnostic()? {
                 if let Some(val) = options.get(opt.name.as_bytes()) {
@@ -186,9 +197,11 @@ fn main() -> miette::Result<()> {
                         sane_scan::ValueType::Int => {
                             DeviceOptionValue::Int(val.parse().into_diagnostic()?)
                         }
-                        sane_scan::ValueType::String => {
-                            DeviceOptionValue::String(CString::new(val.to_string()).unwrap())
-                        }
+                        sane_scan::ValueType::String => DeviceOptionValue::String(
+                            CString::new(val.to_string()).into_diagnostic().with_context(|| {
+                                format!("The value given for '{}' contains a NUL (\\0) byte, which is invalid", opt.name.to_string_lossy())
+                            })?,
+                        ),
                         _ => {
                             continue;
                         }
@@ -202,7 +215,7 @@ fn main() -> miette::Result<()> {
 
             let data = device.read_to_vec().into_diagnostic()?;
 
-            println!("{params:?}");
+            let buffer_size = data.len();
 
             let img = match params.format {
                 sane_scan::Frame::Gray => DynamicImage::from(
@@ -211,7 +224,13 @@ fn main() -> miette::Result<()> {
                         params.lines as u32,
                         data,
                     )
-                    .unwrap(),
+                    .ok_or(ScannrsError::InvalidImageSize {
+                        width: params.pixels_per_line as u32,
+                        height: params.lines as u32,
+                        buffer_size,
+                        pixel_size: params.depth as u32,
+                    })
+                    .into_diagnostic()?,
                 ),
                 sane_scan::Frame::Rgb => DynamicImage::from(
                     image::RgbImage::from_raw(
@@ -219,7 +238,13 @@ fn main() -> miette::Result<()> {
                         params.lines as u32,
                         data,
                     )
-                    .unwrap(),
+                    .ok_or(ScannrsError::InvalidImageSize {
+                        width: params.pixels_per_line as u32,
+                        height: params.lines as u32,
+                        buffer_size,
+                        pixel_size: params.depth as u32,
+                    })
+                    .into_diagnostic()?,
                 ),
                 sane_scan::Frame::Red => todo!(),
                 sane_scan::Frame::Green => todo!(),
