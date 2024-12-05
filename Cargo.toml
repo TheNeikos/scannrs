@@ -1,0 +1,10 @@
+[package]
+name = "scannrs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sane-scan = "0.1.2"
+
+[patch.crates-io]
+sane-scan = { git = "https://github.com/TheNeikos/sane-scan", branch = "fix_sane_header" }

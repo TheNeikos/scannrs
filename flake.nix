@@ -1,7 +1,7 @@
 {
   description = "library";
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-24.05";
+    nixpkgs.url = "nixpkgs/nixos-24.11";
     flake-utils = {
       url = "github:numtide/flake-utils";
     };
@@ -48,13 +48,35 @@
           exec "${unstableRustTarget}/bin/rustfmt" "$@"
         '';
 
+        nativeBuildInputs = [
+          pkgs.clang
+          pkgs.pkg-config
+          pkgs.rustPlatform.bindgenHook
+        ];
+
+        buildInputs = [
+          pkgs.sane-backends
+          pkgs.libclang
+        ];
+
         cargoArtifacts = craneLib.buildDepsOnly {
-          inherit src;
+          inherit
+            src
+            version
+            nativeBuildInputs
+            buildInputs
+            ;
           cargoExtraArgs = "--all-features --all";
         };
 
         crate = craneLib.buildPackage {
-          inherit cargoArtifacts src version;
+          inherit
+            cargoArtifacts
+            src
+            version
+            nativeBuildInputs
+            buildInputs
+            ;
           cargoExtraArgs = "--all-features --all";
         };
 
@@ -85,12 +107,16 @@
 
         devShells.default = devShells.crate;
         devShells.crate = pkgs.mkShell {
-          buildInputs = [ ];
+          buildInputs = [ pkgs.libclang ];
+
+          inputsFrom = [ crate ];
 
           nativeBuildInputs = [
             rustfmt'
             rustTarget
           ];
+
+          BINDGEN_EXTRA_CLANG_ARGS = "-I${pkgs.sane-backends}/include";
         };
       }
     );
