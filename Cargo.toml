@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+clap = { version = "4.5.22", features = ["derive"] }
+human-panic = "2.0.2"
+image = "0.25.5"
+miette = { version = "7.4.0", features = ["fancy"] }
 sane-scan = "0.1.2"
+thiserror = "2.0.4"
 
 [patch.crates-io]
 sane-scan = { git = "https://github.com/TheNeikos/sane-scan", branch = "fix_sane_header" }
