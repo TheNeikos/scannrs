@@ -5,7 +5,7 @@ use sane_scan::Sane;
 use crate::error::ScannrsError;
 
 pub fn options(
-    sane: &Sane,
+    sane: Sane,
     name: String,
     command: Option<crate::cli::OptionsCommand>,
 ) -> Result<(), miette::Error> {

@@ -37,6 +37,7 @@ pub(crate) enum Command {
         #[arg(short, long)]
         path: PathBuf,
     },
+    Tui,
 }
 
 pub(crate) fn split_options(opt: &str) -> miette::Result<(Vec<u8>, String)> {

@@ -8,8 +8,11 @@ clap = { version = "4.5.22", features = ["derive"] }
 human-panic = "2.0.2"
 image = "0.25.5"
 miette = { version = "7.4.0", features = ["fancy"] }
+ratatui = "0.29.0"
 sane-scan = "0.1.2"
+serde = { version = "1.0.215", features = ["derive"] }
 thiserror = "2.0.4"
+toml = { version = "0.8.19", features = ["preserve_order"] }
 
 [lints.clippy]
 unwrap_used = "deny"

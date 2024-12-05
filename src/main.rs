@@ -15,10 +15,10 @@ fn main() -> miette::Result<()> {
 
     match args.command {
         cli::Command::List => {
-            commands::list(&sane)?;
+            commands::list(sane)?;
         }
         cli::Command::Options { name, command } => {
-            commands::options(&sane, name, command)?;
+            commands::options(sane, name, command)?;
         }
         cli::Command::Scan {
             name,
@@ -27,6 +27,8 @@ fn main() -> miette::Result<()> {
         } => {
             commands::scan(sane, name, path, options)?;
         }
+
+        cli::Command::Tui => commands::tui(sane)?,
     }
 
     Ok(())
