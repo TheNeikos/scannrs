@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::path::PathBuf;
 
 use clap::Parser;
-use clap::Subcommand;
 use image::codecs::jpeg::JpegEncoder;
 use image::DynamicImage;
 use miette::Context;
@@ -13,54 +11,7 @@ use sane_scan::DeviceOptionValue;
 use sane_scan::Sane;
 use thiserror::Error;
 
-#[derive(Parser)]
-struct Cli {
-    #[command(subcommand)]
-    command: Command,
-}
-
-#[derive(Subcommand)]
-enum Command {
-    /// List available scanners
-    List,
-    /// Get all options this scanner exposes
-    Options {
-        /// Which scanner to operate on
-        name: String,
-
-        #[command(subcommand)]
-        command: Option<OptionsCommand>,
-    },
-    Scan {
-        /// Which scanner to operate on
-        name: String,
-
-        /// A list of options in `key=value` format to set before scanning, can be used multiple times, later options
-        /// replace earlier ones.
-        #[arg(short, long, value_parser = split_options)]
-        options: Vec<(Vec<u8>, String)>,
-
-        /// The path to save the scan at
-        #[arg(short, long)]
-        path: PathBuf,
-    },
-}
-
-fn split_options(opt: &str) -> miette::Result<(Vec<u8>, String)> {
-    opt.split_once('=')
-        .map(|(k, v)| (k.trim().to_string().into_bytes(), v.trim().to_string()))
-        .ok_or(ScannrsError::InvalidOption)
-        .into_diagnostic()
-}
-
-#[derive(Default, Subcommand)]
-enum OptionsCommand {
-    #[default]
-    List,
-    Show {
-        option: String,
-    },
-}
+mod cli;
 
 #[derive(Debug, Error, Diagnostic)]
 enum ScannrsError {
@@ -91,17 +42,17 @@ enum ScannrsError {
 fn main() -> miette::Result<()> {
     human_panic::setup_panic!();
 
-    let args = Cli::parse();
+    let args = cli::Cli::parse();
 
     let sane = Sane::init_1_0().into_diagnostic()?;
 
     match args.command {
-        Command::List => {
+        cli::Command::List => {
             for device in sane.get_devices().into_diagnostic()? {
                 println!("{device:?}");
             }
         }
-        Command::Options { name, command } => {
+        cli::Command::Options { name, command } => {
             let device = match sane
                 .get_devices()
                 .into_diagnostic()?
@@ -118,7 +69,7 @@ fn main() -> miette::Result<()> {
             };
 
             match command.unwrap_or_default() {
-                OptionsCommand::List => {
+                cli::OptionsCommand::List => {
                     let options = device.get_options().into_diagnostic()?;
 
                     for option in options {
@@ -136,7 +87,7 @@ fn main() -> miette::Result<()> {
                         }
                     }
                 }
-                OptionsCommand::Show { option } => {
+                cli::OptionsCommand::Show { option } => {
                     let options = device.get_options().into_diagnostic()?;
 
                     let device_option = options
@@ -161,7 +112,7 @@ fn main() -> miette::Result<()> {
                 }
             }
         }
-        Command::Scan {
+        cli::Command::Scan {
             name,
             path,
             options,
