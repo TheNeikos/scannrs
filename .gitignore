@@ -1,0 +1,8 @@
+# Rust/Cargo
+/target
+
+# Direnv
+/.direnv
+
+# Nix
+/result*
