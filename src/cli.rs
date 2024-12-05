@@ -4,7 +4,7 @@ use clap::Parser;
 use clap::Subcommand;
 use miette::IntoDiagnostic;
 
-use super::ScannrsError;
+use super::error::ScannrsError;
 
 #[derive(Parser)]
 pub struct Cli {

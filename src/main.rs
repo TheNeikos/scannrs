@@ -5,39 +5,12 @@ use clap::Parser;
 use image::codecs::jpeg::JpegEncoder;
 use image::DynamicImage;
 use miette::Context;
-use miette::Diagnostic;
 use miette::IntoDiagnostic;
 use sane_scan::DeviceOptionValue;
 use sane_scan::Sane;
-use thiserror::Error;
 
 mod cli;
-
-#[derive(Debug, Error, Diagnostic)]
-enum ScannrsError {
-    #[error("Could not find scanner with name: '{}'", .name)]
-    CouldNotFindScanner { name: String },
-
-    #[error("An error occured while communicating with the scanner: {}", .error)]
-    Sane {
-        #[from]
-        error: sane_scan::Error,
-    },
-    #[error("The given option '{}' does not exist for scanner '{}'", .option, .name)]
-    OptionNotFound { name: String, option: String },
-
-    #[error("The given option is not formatted correctly. Please use `key=value`")]
-    InvalidOption,
-
-    #[error("The scanner gave nonsensical values, or there is a bug. It was reported: {width}x{height}pixels with a\
-        bitdepth of {pixel_size} to fit into {buffer_size}. If the values make sense, please report it as a bug")]
-    InvalidImageSize {
-        width: u32,
-        height: u32,
-        buffer_size: usize,
-        pixel_size: u32,
-    },
-}
+mod error;
 
 fn main() -> miette::Result<()> {
     human_panic::setup_panic!();
@@ -60,12 +33,12 @@ fn main() -> miette::Result<()> {
                 .find_map(|d| (d.name.as_bytes() == name.as_bytes()).then(|| d.open()))
             {
                 Some(device) => device
-                    .map_err(ScannrsError::from)
+                    .map_err(error::ScannrsError::from)
                     .into_diagnostic()
                     .with_context(|| {
                         format!("While trying to open a connection with scanner {}", name)
                     })?,
-                None => return Err(ScannrsError::CouldNotFindScanner { name }.into()),
+                None => return Err(error::ScannrsError::CouldNotFindScanner { name }.into()),
             };
 
             match command.unwrap_or_default() {
@@ -93,7 +66,7 @@ fn main() -> miette::Result<()> {
                     let device_option = options
                         .into_iter()
                         .find(|o| o.name.as_bytes() == option.as_bytes())
-                        .ok_or_else(|| ScannrsError::OptionNotFound {
+                        .ok_or_else(|| error::ScannrsError::OptionNotFound {
                             name: name.clone(),
                             option: option.clone(),
                         })
@@ -124,12 +97,12 @@ fn main() -> miette::Result<()> {
                 .find_map(|d| (d.name.as_bytes() == name.as_bytes()).then(|| d.open()))
             {
                 Some(device) => device
-                    .map_err(ScannrsError::from)
+                    .map_err(error::ScannrsError::from)
                     .into_diagnostic()
                     .with_context(|| {
                         format!("While trying to open a connection with scanner {}", name)
                     })?,
-                None => return Err(ScannrsError::CouldNotFindScanner { name }.into()),
+                None => return Err(error::ScannrsError::CouldNotFindScanner { name }.into()),
             };
 
             let file = std::fs::OpenOptions::new()
@@ -175,7 +148,7 @@ fn main() -> miette::Result<()> {
                         params.lines as u32,
                         data,
                     )
-                    .ok_or(ScannrsError::InvalidImageSize {
+                    .ok_or(error::ScannrsError::InvalidImageSize {
                         width: params.pixels_per_line as u32,
                         height: params.lines as u32,
                         buffer_size,
@@ -189,7 +162,7 @@ fn main() -> miette::Result<()> {
                         params.lines as u32,
                         data,
                     )
-                    .ok_or(ScannrsError::InvalidImageSize {
+                    .ok_or(error::ScannrsError::InvalidImageSize {
                         width: params.pixels_per_line as u32,
                         height: params.lines as u32,
                         buffer_size,
